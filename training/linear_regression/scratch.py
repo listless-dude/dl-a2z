@@ -5,32 +5,21 @@ import random
 import torch
 from torch import nn
 
-class HyperParameters:
-    """
-    Utility class for saving Hyperparameters
-    """
-    def __init__(self):
-        self.hparams = {}
-    
-    def add_param(self, param_key, param_value):
-        self.hparams[param_key] = param_value
-        setattr(self, param_key, param_value)
-
 class Trainer:
     """The base class for training models with data."""
-    def __init__(self, max_epochs, num_gpus=0, gradient_clip_val=0):
-        assert num_gpus == 0, 'No GPU support yet'
+    def __init__(self, max_epochs, gradient_clip_val=0):
+        self.max_epochs = max_epochs
+        self.gradient_clip_val = gradient_clip_val
 
     def prepare_data(self, data):
-        self.train_dataloader = data.train_dataloader()
-        self.val_dataloader = data.val_dataloader()
+        self.train_dataloader = list(data.train_dataloader())
+        self.val_dataloader = list(data.val_dataloader())
         self.num_train_batches = len(self.train_dataloader)
         self.num_val_batches = (len(self.val_dataloader)
                                 if self.val_dataloader is not None else 0)
 
     def prepare_model(self, model):
         model.trainer = self
-        model.board.xlim = [0, self.max_epochs]
         self.model = model
     
     def fit(self, model, data):
@@ -69,6 +58,9 @@ class Trainer:
     
 class SGD:
     """Minibatch stochastic gradient descent."""
+    def __init__(self, params, lr):
+        self.params = params
+        self.lr = lr
     def step(self):
         for param in self.params:
             param -= self.lr * param.grad
@@ -76,15 +68,20 @@ class SGD:
     def zero_grad(self):
         for param in self.params:
             if param.grad is not None:
-                param.grad_zero_()
+                param.grad.zero_()
 
 class RegressionData:
     """Synthetic data for linear regression."""
     def __init__(self, w, b, noise=0.01, num_train=1000, num_val=1000, batch_size=32):
         n = num_train + num_val
+        self.w = w
+        self.b = b
+        self.num_train = num_train
+        self.num_val = num_val
         self.X = torch.randn(n, len(w))
         noise = torch.randn(n, 1) * noise
         self.y = torch.matmul(self.X, w.reshape(-1, 1)) + b + noise
+        self.batch_size = batch_size
     
     def get_dataloader(self, train):
         if train:
@@ -97,18 +94,25 @@ class RegressionData:
             batch_indices = torch.tensor(indices[i: i+self.batch_size])
             yield self.X[batch_indices], self.y[batch_indices]
         
+    def train_dataloader(self):
+        return self.get_dataloader(train=True)
+    
+    def val_dataloader(self):
+        return self.get_dataloader(train=False)
 
 class LinearRegression(nn.Module):
     """
     Linear Regression model from scratch
     """
     def __init__(self, num_inputs, lr, sigma=0.01):
+        super(LinearRegression, self).__init__()
         """
         w: Weights initialized with mean=0, std deviation=sigma from a normal distribution
         b: Bias initialized with zeros
         """
         self.w = torch.normal(0, sigma, (num_inputs, 1), requires_grad=True)
         self.b = torch.zeros(1, requires_grad=True)
+        self.lr = lr
 
     def forward(self, X):
         # Vectorized implementation of y = w'X + b
@@ -119,11 +123,19 @@ class LinearRegression(nn.Module):
         l = (y_pred - y_true) ** 2 / 2
         return l.mean()
     
-    def configure_optimizers(self):
-        return SGD([self.w, self.b], self.lr)
+    def training_step(self, batch):
+        l = self.loss(self(*batch[:-1]), batch[-1])
+        return l
     
-model = LinearRegression(2, lr=0.03)
-data = 
+    def validation_step(self, batch):
+        l = self.loss(self(*batch[:-1]), batch[-1])
+        return l
+    
+    def configure_optimizers(self):
+        return SGD(params=[self.w, self.b], lr=self.lr)
+    
+model = LinearRegression(2, lr=0.05)
+data = RegressionData(w=torch.tensor([2,-3.4]), b=4.2)
 trainer = Trainer(max_epochs=3)
 trainer.fit(model, data)
 
