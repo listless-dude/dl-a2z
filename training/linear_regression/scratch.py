@@ -1,61 +1,16 @@
-import math
-import time
-import numpy as np  
-import random
+"""
+Linear Regression from scratch.
+Implemented:
+1. Synthetic data for regression
+2. Stochastic Gradient Descent
+3. Trainer Class for training and evaluation
+4. Linear Regression model with MSE
+"""
 import torch
 from torch import nn
+from trainer import Trainer
+from regression_data import RegressionData
 
-class Trainer:
-    """The base class for training models with data."""
-    def __init__(self, max_epochs, gradient_clip_val=0):
-        self.max_epochs = max_epochs
-        self.gradient_clip_val = gradient_clip_val
-
-    def prepare_data(self, data):
-        self.train_dataloader = list(data.train_dataloader())
-        self.val_dataloader = list(data.val_dataloader())
-        self.num_train_batches = len(self.train_dataloader)
-        self.num_val_batches = (len(self.val_dataloader)
-                                if self.val_dataloader is not None else 0)
-
-    def prepare_model(self, model):
-        model.trainer = self
-        self.model = model
-    
-    def fit(self, model, data):
-        self.prepare_data(data)
-        self.prepare_model(model)
-        self.optim = model.configure_optimizers()
-        self.epoch = 0
-        self.train_batch_idx = 0
-        self.val_batch_idx = 0
-        for self.epoch in range(self.max_epochs):
-            self.fit_epoch()
-    
-    def prepare_batch(self, batch):
-        return batch
-    
-    def fit_epoch(self):
-        self.model.train()
-        for batch in self.train_dataloader:
-            loss = self.model.training_step(self.prepare_batch(batch))
-            self.optim.zero_grad()
-            with torch.no_grad():
-                loss.backward()
-                if self.gradient_clip_val > 0:
-                    self.clip_gradients(self.gradient_clip_val, self.model)
-                self.optim.step()
-            self.train_batch_idx += 1
-        
-        if self.val_dataloader is None:
-            return 
-
-        self.model.eval()
-        for batch in self.val_dataloader:
-            with torch.no_grad():
-                self.model.validation_step(self.prepare_batch(batch))
-            self.val_batch_idx += 1
-    
 class SGD:
     """Minibatch stochastic gradient descent."""
     def __init__(self, params, lr):
@@ -69,36 +24,6 @@ class SGD:
         for param in self.params:
             if param.grad is not None:
                 param.grad.zero_()
-
-class RegressionData:
-    """Synthetic data for linear regression."""
-    def __init__(self, w, b, noise=0.01, num_train=1000, num_val=1000, batch_size=32):
-        n = num_train + num_val
-        self.w = w
-        self.b = b
-        self.num_train = num_train
-        self.num_val = num_val
-        self.X = torch.randn(n, len(w))
-        noise = torch.randn(n, 1) * noise
-        self.y = torch.matmul(self.X, w.reshape(-1, 1)) + b + noise
-        self.batch_size = batch_size
-    
-    def get_dataloader(self, train):
-        if train:
-            indices = list(range(0, self.num_train))
-            random.shuffle(indices)
-        else:
-            indices = list(range(self.num_train, self.num_train+self.num_val))
-        
-        for i in range(0, len(indices), self.batch_size):
-            batch_indices = torch.tensor(indices[i: i+self.batch_size])
-            yield self.X[batch_indices], self.y[batch_indices]
-        
-    def train_dataloader(self):
-        return self.get_dataloader(train=True)
-    
-    def val_dataloader(self):
-        return self.get_dataloader(train=False)
 
 class LinearRegression(nn.Module):
     """
