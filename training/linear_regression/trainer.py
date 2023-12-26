@@ -36,15 +36,14 @@ class Trainer:
     def fit_epoch(self):
         self.model.train()
         for batch in self.train_dataloader:
-            loss = self.model.training_step(self.prepare_batch(batch))
+            train_loss = self.model.training_step(self.prepare_batch(batch))
             self.optim.zero_grad()
             with torch.no_grad():
-                loss.backward()
+                train_loss.backward()
                 if self.gradient_clip_val > 0:
                     self.clip_gradients(self.gradient_clip_val, self.model)
                 self.optim.step()
             self.train_batch_idx += 1
-        print(f"Training Loss: {loss}")
         
         if self.val_dataloader is None:
             return 
@@ -52,5 +51,8 @@ class Trainer:
         self.model.eval()
         for batch in self.val_dataloader:
             with torch.no_grad():
-                self.model.validation_step(self.prepare_batch(batch))
+                val_loss = self.model.validation_step(self.prepare_batch(batch))
             self.val_batch_idx += 1
+
+        print(f"Training Loss: {train_loss}, Validation Loss: {val_loss}")
+
