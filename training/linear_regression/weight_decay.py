@@ -4,7 +4,7 @@ Regression with L2 Regularization(Weight Decay)
 import torch
 import random
 from concise import LinearRegression
-from trainer import Trainer
+from utils.trainer import Trainer
 
 class Data:
     def __init__(self, num_train, num_val, num_inputs, batch_size):

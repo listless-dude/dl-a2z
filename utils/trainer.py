@@ -54,5 +54,5 @@ class Trainer:
                 val_loss = self.model.validation_step(self.prepare_batch(batch))
             self.val_batch_idx += 1
 
-        print(f"Training Loss: {train_loss}, Validation Loss: {val_loss}")
+        print(f"Training Loss: {train_loss}, Validation Loss: {val_loss[0].item()}, Valid Acc: {val_loss[1].item()}")
 

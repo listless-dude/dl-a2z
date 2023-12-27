@@ -3,7 +3,7 @@ Pytorch Implementation of Linear Regression.
 """
 import torch
 from torch import nn
-from trainer import Trainer
+from utils.trainer import Trainer
 from regression_data import RegressionData
 
 class LinearRegression(nn.Module):
